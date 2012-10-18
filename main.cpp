@@ -11,6 +11,7 @@ void Multiply( char sResult[MAXSZ], char sNumber1[MAXSZ], char \
 	sNumber2[MAXSZ], int nLenNum1, int nLenNum2 );
 void Reverse( char *sNumber, int nLenPre );
 void LolcaReverse( char* pBegin, char* pEnd );
+bool CheckNumber( const char* sNumber );
 
 int main(void){
 	//1000000 put from low index
@@ -23,29 +24,44 @@ int main(void){
 	sNumber2[MAXSZ]='\0';
 	sResult[MAXSZ] = '\0';
 
+	int nLenNum1;//Effective length of Number1:
+	int nLenNum2;//Effective Length of Number2:
+	
 	cout<<"Input number1:"<<endl;
 	cin>>sNumber1;
+	if( !CheckNumber( sNumber1 ) ){
+		cout<<"Numbers only"<<endl;
+		exit(1);
+	}
+	nLenNum1 = strlen( sNumber1 );
 	cout<<"Input number2:"<<endl;
 	cin>>sNumber2;
+	if( !CheckNumber( sNumber2 ) ){
+		cout<<"Numbers only"<<endl;
+		exit( 1 );
+	}
+	nLenNum2 = strlen( sNumber2 );
 
 	// After here char arraies are treated as string
 	//show before Reverse
-	cout<<sNumber1<<endl;
-	cout<<"*"<<endl;
-	cout<<sNumber2<<endl;
+	cout<<"=====================================*"<<endl;
+	cout<<sNumber2;
+	cout<<" * "<<endl;
+	cout<<sNumber1;
 	cout<<"="<<endl;
 	/*set unused bit to zero
 	*now is 100382\0xxxxx I want is 0000100382
 	*/
 	memset( sNumber1+strlen(sNumber1), '0', MAXSZ-strlen(sNumber1) );
-	Reverse( sNumber1, strlen(sNumber1) );
+	Reverse( sNumber1, nLenNum1 );
 	//xxx1382 [0,(MAXSZ)-strlen(sNumber1)-1]
 	memset( sNumber2+strlen(sNumber2), '0', MAXSZ-strlen(sNumber2) );
-	Reverse( sNumber2, strlen(sNumber2) );
-
+	Reverse( sNumber2, nLenNum2 );
+	
 	memset( sResult, '0', MAXSZ );
-	Multiply( sResult, sNumber1, sNumber2, strlen(sNumber1), \
-		strlen(sNumber2) );
+	cout<<"-----------------------------------"<<endl;
+	Multiply( sResult, sNumber1, sNumber2, nLenNum1, \
+		nLenNum2 );
 	//000284-->284000
 	//Means put 0 strings to the end of sResult
 	Reverse( sResult, -1 );
@@ -59,13 +75,15 @@ void Multiply( char *sResult, char *sNumber1, char *sNumber2, \
 	*/
 	//compute from low index 
 	//Use sNumber1's each bit to multiply sNumber2
-	for(int iOfNum1=0; iOfNum1<nLenNum1; ++iOfNum1){
+	//*********
+	for(int iOfNum1=MAXSZ-1; iOfNum1>=(MAXSZ-nLenNum1); --iOfNum1){
 		//Compute sNumber1[iOfNum1] * sNumber2
 		/*
 		* 285930731
 		* x    3
 		*/
-		for(int iOfNum2=0; iOfNum2<nLenNum2; ++iOfNum2){
+		//********Here secnod time BUg
+		for(int iOfNum2=MAXSZ-1; iOfNum2>=(MAXSZ-nLenNum2); --iOfNum2){
 			/* :)! order is human, but I compute in machine way, \
 				no difference :D
 			*  28593 7 37
@@ -85,43 +103,53 @@ void Multiply( char *sResult, char *sNumber1, char *sNumber2, \
 			*          3  carry:1
 			*        ...  Loop until carry is 0
 			*/
-			int iForLocalAdd = iOfNum1;// Index 0 is lowest data \
-					remember
-			int nCarry = nResult2D % 10;// To remember carry result \
+			//Here is iOfNum2
+			int iForLocalAdd = (iOfNum2+iOfNum1)-MAXSZ+1;
+			// Index 0 is lowest data \
+					remember, but in highest index
+			int nCarry = nResult2D / 10;// To remember carry result \
 						from add, like 7*8,carry is 5
-			int nReminder =nResult2D - nCarry*10;// Hers is for\
+			int nReminder = nResult2D % 10;// Hers is for\
 					 example 56 - 50 = 6;
-			int nResultLocalMultiply;
-			while( iForLocalAdd<MAXSZ ){// Take care of your National \
-					Boundary, Notice is following
-				nReminder = sResult[iForLocalAdd]-'0'+ nReminder;
-				if( nReminder>=0 ){
-					nReminder -= 10;
-					nCarry++;
+			//log begin
+			//cout<<"|---->nCarry:"<<nCarry<<endl;;
+			cout<<sNumber1[iOfNum1]<<"x"<<sNumber2[iOfNum2];
+			cout<<"="<<nResult2D<<endl;
+			//log end
+			while( iForLocalAdd>=0 ){//this rule is only for boundary
+				//计算余数
+				cout<<"nReminder"<<sResult[iForLocalAdd]<<"+"<<nReminder<<"+"<<nCarry<<endl;//log
+				nReminder = sResult[iForLocalAdd]-'0'+ nReminder \
+					+ nCarry;
+				nCarry = 0;//clear nCarry
+				//如果余数》=10，进位
+				if( nReminder>=10 ){
+					nCarry = nReminder / 10;//Before here nCarry \
+						may bigger than 1, e.g. 7*8=56
+					nReminder = nReminder % 10;
 				}
-				sResult[iForLocalAdd] += nReminder;// char+int:\
-						'4'+4 = 8 :D
+				//将计算后的余数赋值到结果中
+				//cout<<"iForLocalAdd"<<iForLocalAdd<<"nReminder:"<<sResult[iForLocalAdd]<<endl;//log
+				sResult[iForLocalAdd] = '0'+nReminder;
+				//cout<<"nReminder:"<<sResult[iForLocalAdd]<<endl;//log
+				//cout<<"sResult:"<<sResult<<endl;//log
+				//如果此时进位为0，说明已经计算完毕，可以退出循环
 				if( nCarry==0 ){// No carry here, you are free
 					break;
 				}
+				//如果没有退出需要继续执行，直到没有进位
+				iForLocalAdd--;//for high power's addition
 			}
 			// Check overflow, sorry This is still Boundary :(
-			if( iForLocalAdd>=MAXSZ ){
-				perror("Result overflow.");
+			if( nCarry!=0 ){// U are in trouble !
+				cout<<"Result overflow."<<endl;
 				exit(1);
 			}
+			//log
+			//cout<<"nCarry"<<nCarry<<"<----|"<<endl;
+			//log end
 		}
-		
 	}
-	//Reverse Result <-- to show Result in human way :D
-	//I love U Douban
-	for(int iResultReverse=0; iResultReverse<MAXSZ/2; ++iResultReverse){
-		/* 00001 shoule be
-		*  10000
-		*/
-		sResult[iResultReverse]	= sResult[(MAXSZ-1)-iResultReverse];
-	}
-	
 }
 /*
 Func: Change position of the previous string and the behind string
@@ -173,6 +201,29 @@ void LolcaReverse( char* pBegin, char* pEnd ){
 		++pBegin;
 	}
 }
+
+bool CheckNumber( const char* sNumber ){
+	assert( sNumber!=NULL );
+	char * pCur = (char*) sNumber;
+	while(  (*pCur!='\0') && (*pCur>='0') && (*pCur<='9') ){
+		pCur++;
+	}
+	if( *pCur=='\0' ){
+		return 1;
+	}
+	else{
+		return 0;
+	}
+}
+
+
+
+
+
+
+
+
+
 
 
 
